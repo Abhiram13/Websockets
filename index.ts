@@ -19,10 +19,11 @@ class Websocket extends EventEmitter {
    constructor(options: IWebSocketOptions) {
       super();
       this.options = options;
-      this.upgradeSocket();
+      this.#upgradeSocket();
    }
 
-   upgradeSocket() {
+   /** @private */
+   #upgradeSocket() {
       const websocket = http.createServer();
 
       websocket.listen(this.options?.port || 3000).on('upgrade', (req, socket, head) => {
