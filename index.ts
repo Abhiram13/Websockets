@@ -1,37 +1,55 @@
 import * as http from 'http';
 import * as Hash from 'crypto';
-import {Duplex} from 'stream';
+import {EventEmitter} from 'events';
 
-class WebSocket {
-   listen(port: number, callback: (sc: Duplex) => void) {
+interface IWebSocketOptions {
+   port: number;
+}
+
+class WebSocketEvents {
+   /** Calls when websocket server receives data from client */
+   static get onData() {
+      return "data";
+   }
+}
+
+class Websocket extends EventEmitter {
+   options: IWebSocketOptions;
+
+   constructor(options: IWebSocketOptions) {
+      super();
+      this.options = options;
+      this.upgradeSocket();
+   }
+
+   upgradeSocket() {
       const websocket = http.createServer();
-      
-      websocket.listen(port).on('upgrade', (req, socket, head) => {
+
+      websocket.listen(this.options?.port || 3000).on('upgrade', (req, socket, head) => {
          let value: string = '';
-      
+
          if (req?.headers['upgrade'] === 'websocket') {
             value = generateValue(req?.headers['sec-websocket-key']);
          };
 
-         console.log(port, value);
-      
          socket.write('HTTP/1.1 101 Web Socket Protocol Handshake\r\n' +
             'Upgrade: WebSocket\r\n' +
             'Connection: Upgrade\r\n' +
             `Sec-WebSocket-Accept:${value}\r\n` +
             '\r\n');
 
-         callback(socket);
+         socket?.on('data', (chunk: Buffer) => {
+            this.emit(WebSocketEvents.onData, chunk);
+         });
       });
    }
 }
-const socket = new WebSocket().listen;
 
-socket(3001, (sc) => {
-   sc.on('data', (chunk: Buffer) => {
-      console.log('Date from socket: ', decodeMessage(chunk));
-   });
-})
+const sock = new Websocket({port: 3001});
+
+sock.on(WebSocketEvents.onData, (chunk: Buffer) => {
+   console.log('Decoded here: ', decodeMessage(chunk));
+});
 
 function decodeMessage(buffer: Buffer) {
    if ((buffer.readUInt8(0) & 0xF) === 0x1) {
