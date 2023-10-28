@@ -1,5 +1,6 @@
 import * as http from 'http';
 import * as Hash from 'crypto';
+import {Duplex} from 'stream';
 import {EventEmitter} from 'events';
 
 interface IWebSocketOptions {
@@ -10,6 +11,10 @@ class WebSocketEvents {
    /** Calls when websocket server receives data from client */
    static get onData() {
       return "data";
+   }
+
+   static get onConnection() {
+      return "connected";
    }
 }
 
@@ -39,17 +44,19 @@ class Websocket extends EventEmitter {
             `Sec-WebSocket-Accept:${value}\r\n` +
             '\r\n');
 
-         socket?.on('data', (chunk: Buffer) => {
-            this.emit(WebSocketEvents.onData, chunk);
-         });
+         this.emit(WebSocketEvents.onConnection, socket);
       });
    }
 }
 
 const sock = new Websocket({port: 3001});
 
-sock.on(WebSocketEvents.onData, (chunk: Buffer) => {
-   console.log('Decoded here: ', decodeMessage(chunk));
+sock.on(WebSocketEvents.onConnection, (socket: Duplex) => {
+   console.log('Web socket connected');
+
+   socket.on(WebSocketEvents.onData, (chunk: Buffer) => {
+      console.log('Decoded data here: ', decodeMessage(chunk));
+   });
 });
 
 function decodeMessage(buffer: Buffer) {
