@@ -7,15 +7,10 @@ interface IWebSocketOptions {
    port: number;
 }
 
-class WebSocketEvents {
+enum WebSocketEvents {
    /** Calls when websocket server receives data from client */
-   static get onData() {
-      return "data";
-   }
-
-   static get onConnection() {
-      return "connected";
-   }
+   onData = "data",
+   onConnection = "connected",
 }
 
 /**
