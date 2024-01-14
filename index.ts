@@ -18,6 +18,9 @@ class WebSocketEvents {
    }
 }
 
+/**
+ * @tutorial https://gist.github.com/yakovenkodenis/083c3a9443e09b7e0f08c92222373799#file-ws-js
+ */
 class Websocket extends EventEmitter {
    options: IWebSocketOptions;
 
@@ -56,12 +59,49 @@ sock.on(WebSocketEvents.onConnection, (socket: Duplex) => {
 
    socket.on(WebSocketEvents.onData, (chunk: Buffer) => {
       console.log('Decoded data here: ', decodeMessage(chunk));
+
+      socket.write(createFrame('Hello Wordl'));
    });
-});
+}); 
+
+function createFrame(data: any) {
+   const payload = JSON.stringify(data);
+
+   const payloadByteLength = Buffer.byteLength(payload);
+   let payloadBytesOffset = 2;
+   let payloadLength = payloadByteLength;
+
+   if (payloadByteLength > 65535) { // length value cannot fit in 2 bytes
+      payloadBytesOffset += 8;
+      payloadLength = 127;
+   } else if (payloadByteLength > 125) {
+      payloadBytesOffset += 2;
+      payloadLength = 126;
+   }
+
+   const buffer = Buffer.alloc(payloadBytesOffset + payloadByteLength);
+
+   // first byte
+   buffer.writeUInt8(0b10000001, 0); // [FIN (1), RSV1 (0), RSV2 (0), RSV3 (0), Opode (0x01 - text frame)]
+
+   buffer[1] = payloadLength; // second byte - actual payload size (if <= 125 bytes) or 126, or 127
+
+   if (payloadLength === 126) { // write actual payload length as a 16-bit unsigned integer
+      buffer.writeUInt16BE(payloadByteLength, 2);
+   } else if (payloadByteLength === 127) { // write actual payload length as a 64-bit unsigned integer
+      buffer.writeBigUInt64BE(BigInt(payloadByteLength), 2);
+   }
+
+   buffer.write(payload, payloadBytesOffset);
+   return buffer;
+}
 
 function decodeMessage(buffer: Buffer) {
+   console.log(buffer.readUInt8(0) & 0xF);
    if ((buffer.readUInt8(0) & 0xF) === 0x1) {
       const length = (buffer.readUInt8(1) & 0x7F) + 4;
+
+      console.log({length});
 
       let currentOffset = 2;
       const mask_key = buffer.readUInt32BE(2);
