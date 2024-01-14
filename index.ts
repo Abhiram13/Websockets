@@ -41,28 +41,30 @@ class Websocket extends EventEmitter {
             value = generateValue(req?.headers['sec-websocket-key']);
          };
 
-         socket.write('HTTP/1.1 101 Web Socket Protocol Handshake\r\n' +
+         socket.write(
+            'HTTP/1.1 101 Web Socket Protocol Handshake\r\n' +
             'Upgrade: WebSocket\r\n' +
             'Connection: Upgrade\r\n' +
             `Sec-WebSocket-Accept:${value}\r\n` +
-            '\r\n');
+            '\r\n'
+         );
 
-         this.emit(WebSocketEvents.onConnection, socket);
+         socket.on('data', (chunk) => {
+            this.emit(WebSocketEvents.onData, decodeMessage(chunk), (data: any) => {
+               const maskedData = createFrame(data);
+               socket.write(maskedData);
+            });
+         });
       });
    }
 }
 
 const sock = new Websocket({port: 3001});
 
-sock.on(WebSocketEvents.onConnection, (socket: Duplex) => {
-   console.log('Web socket connected');
-
-   socket.on(WebSocketEvents.onData, (chunk: Buffer) => {
-      console.log('Decoded data here: ', decodeMessage(chunk));
-
-      socket.write(createFrame('Hello Wordl'));
-   });
-}); 
+sock.on(WebSocketEvents.onData, (message, write) => {
+   console.log('Message from client. -> ', message);
+   write('This is a reply from socket server to client!');
+});
 
 function createFrame(data: any) {
    const payload = JSON.stringify(data);
@@ -97,11 +99,8 @@ function createFrame(data: any) {
 }
 
 function decodeMessage(buffer: Buffer) {
-   console.log(buffer.readUInt8(0) & 0xF);
    if ((buffer.readUInt8(0) & 0xF) === 0x1) {
       const length = (buffer.readUInt8(1) & 0x7F) + 4;
-
-      console.log({length});
 
       let currentOffset = 2;
       const mask_key = buffer.readUInt32BE(2);
